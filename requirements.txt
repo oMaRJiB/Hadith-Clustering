@@ -1,0 +1,23 @@
+# Use Python 3.12 for the pinned TensorFlow version.
+# Deep Learning & Apple Metal GPU
+tensorflow==2.18.1
+tensorflow-metal==1.2.0; sys_platform == "darwin" and platform_machine == "arm64"
+
+# Numerical Computing & Data Processing
+numpy
+pandas
+scipy
+
+# Machine Learning & Evaluation
+scikit-learn>=1.2
+
+# Image Processing & Augmentation
+Pillow
+
+# Data Visualization
+matplotlib
+
+# Utilities
+pyarrow
+datasets
+joblib

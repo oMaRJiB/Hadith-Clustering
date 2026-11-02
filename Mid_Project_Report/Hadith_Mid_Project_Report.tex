@@ -1,0 +1,146 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{listings}
+\setlength{\textfloatsep}{6pt}
+\setlength{\floatsep}{6pt}
+\setlength{\intextsep}{6pt}
+\usepackage{xcolor}
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,columns=fullflexible,frame=single,showstringspaces=false}
+\begin{document}
+\title{Semantic Variation Clustering in Prophetic Hadiths: Mid-Project Progress Report}
+\author{\IEEEauthorblockN{Omar Jibreen}\IEEEauthorblockA{Department of Computer Science\\Georgia State University, Atlanta, GA, USA\\ojibreen1@student.gsu.edu}}
+\maketitle
+\begin{abstract}
+This mid-project report documents preliminary work on unsupervised clustering of Arabic Prophetic Hadith narrations. The goal is to identify groups with related meanings despite variation in wording and transmission. A corpus containing 34,088 records from six canonical hadith collections (Kutub al-Sittah) has been assembled and inspected. Initial experiments use term frequency--inverse document frequency (TF-IDF) vectors with K-means clustering. Initial silhouette scores indicate weak cluster separation, prompting controlled comparisons of text inputs, feature representations, and cluster counts. Transformer-based representations remain planned work.
+\end{abstract}
+\begin{IEEEkeywords}
+Hadith, Arabic natural language processing, TF-IDF, K-means, semantic similarity, clustering
+\end{IEEEkeywords}
+\section{Introduction}
+Prophetic Hadith literature preserves reports through chains of narrators (\emph{isnad}) and narrated content (\emph{matn}). Reports may describe related teachings or events using different words or through different narrators. Exact word matching therefore cannot reliably discover every related narration. This project explores unsupervised methods for grouping Arabic Hadith texts by similarity, with the longer-term aim of identifying semantic variation among narrations.
+
+The initial approach represents text numerically using TF-IDF and applies K-means clustering. Later experiments will explore Arabic language-model embeddings, including AraBERT, and examine whether they better capture meaning beyond vocabulary overlap. Cluster assignments are exploratory computational groupings, not judgments of Hadith authenticity or equivalence.
+
+\section{Related Work}
+Faidi \emph{et al.} examined Arabic Hadith text classification using TF-IDF, several stemming or linguistic processing tools, and classifiers including decision trees, Naive Bayes, and support vector machines (SVM). They reported that Khoja stemming performed best among the processing tools evaluated and that SVM produced the highest classification accuracy among the classifiers tested \cite{faidi}. Their supervised classification task differs from the present unsupervised clustering objective, but supports comparing Arabic text preprocessing choices.
+
+Antoun \emph{et al.} introduced AraBERT, an Arabic-specific pretrained transformer, and reported competitive or state-of-the-art results on several evaluated Arabic NLP tasks \cite{arabert}. Their results prompt a future comparison between TF-IDF's lexical representation and contextual embeddings. AraBERT has not been trained or evaluated yet.
+
+\section{Methodology}
+Each data record is treated as one document. The primary baseline converts Arabic text into a sparse TF-IDF matrix; K-means then assigns each document to one of $k$ clusters by minimizing within-cluster squared Euclidean distance. The experimental pipeline is: \emph{source CSVs $\rightarrow$ merged dataframe $\rightarrow$ data-quality checks $\rightarrow$ selected Arabic text $\rightarrow$ TF-IDF $\rightarrow$ K-means $\rightarrow$ clustering metrics and manual review}. Record references and original strings are retained separately.
+
+Two possible modeling inputs are the complete \texttt{Arabic\_Hadith} and the \texttt{Arabic\_Matn} field with a fallback to the full Arabic hadith when the matn is absent or hasnt been extracted. The latter is convenient but not strictly matn-only: fallback texts may contain isnads and compiler comments. Different values of $k$ and word n-gram settings are being tested. A later controlled comparison will fix the record set and vectorizer configuration while changing only one variable at a time.
+
+\section{Dataset Description and Preparation}
+The LK Hadith corpus was downloaded as CSV files and combined with Pandas in Jupyter Notebook. A \texttt{Collection} column was extracted from the parent directory of each CSV. The merged dataset has 34,088 records, 17 original columns, and six collection labels, as shown in Table~\ref{tab:collections}. Fields include Arabic and English Hadith text, isnad and matn fields, chapter/section details, reference numbers, and grade metadata.
+
+\begin{table}[t]
+\caption{Records by Collection}
+\label{tab:collections}
+\centering\footnotesize
+\begin{tabular}{lr@{\hspace{1.3em}}lr}
+\toprule
+Collection & Records & Collection & Records\\
+\midrule
+Sahih Al-Bukhari & 7,345 & Sahih Muslim & 7,314\\
+Sunan an-Nasa'i & 5,680 & Sunan Abu Dawud & 5,138\\
+Sunan Ibn Majah & 4,402 & Sunan al-Tirmidhi & 4,209\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For exploratory modeling, missing Arabic matn values were addressed through a separate fallback text field using the complete Arabic Hadith, rather than changing the original raw text. The CSV was exported to a separate experiments notebook. The source Arabic remains preserved, including its diacritics; robust Arabic normalization and reliable isnad/matn segmentation remain unfinished.
+
+\section{Exploratory Data Analysis}
+Initial checks covered field types, collection distribution, null counts, exact duplicates, and repeated reference keys. Table~\ref{tab:missing} summarizes notable missing fields. There were zero exact duplicate dataframe rows. Checking the composite key (collection, chapter number, section number, Hadith number) identified 13 repeated groups involving 27 records, all in Bukhari. Within each group the Arabic Hadith and matn strings differed, so the records were retained rather than deleted on the basis of reference collisions.
+
+\begin{table}[t]
+\caption{Selected Missing-Value Counts, $N=34{,}088$}
+\label{tab:missing}
+\centering\footnotesize
+\begin{tabular}{lrr}
+\toprule
+Field & Missing & Percentage\\
+\midrule
+Arabic comment & 22,862 & 67.07\%\\
+Arabic section title & 6,755 & 19.82\%\\
+English section title & 6,613 & 19.40\%\\
+Section number & 6,426 & 18.85\%\\
+Arabic matn & 836 & 2.45\%\\
+English isnad & 492 & 1.44\%\\
+Arabic isnad & 16 & 0.05\%\\
+Complete Arabic Hadith & 4 & 0.01\%\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Inspection of records with absent \texttt{Arabic\_Matn} showed that many still have complete \texttt{Arabic\_Hadith} content. In some cases the \texttt{Arabic\_Isnad} field duplicates nearly the entire Arabic record, occasionally differing only in punctuation or HTML spacing; in others the narration refers back to a previous report rather than restating its content. Thus automatically subtracting isnad from the complete text would be unreliable. Original columns were kept intact and the fallback approach was marked as a methodological limitation.
+
+\section{Initial Experiments and Discussion}
+Initial TF-IDF/K-means experiments have been run on Arabic text. A representative configuration uses word unigrams, a minimum document frequency of 3, a maximum document frequency fraction of 0.99, and 10,000 maximum features. The essential implementation fragment is:
+
+\begin{lstlisting}[language=Python]
+tfidf = TfidfVectorizer(
+    analyzer='word', ngram_range=(1,1),
+    min_df=3, max_df=.99,
+    max_features=10000)
+X = tfidf.fit_transform(texts)
+model = KMeans(n_clusters=200,
+    random_state=42, n_init=10)
+labels = model.fit_predict(X)
+score = silhouette_score(X, labels,
+    sample_size=5000, random_state=42)
+\end{lstlisting}
+
+Table~\ref{tab:exp} records the results observed so far. Earlier trials used full Hadith text, whereas the latest 200-cluster run followed work on the matn-based input and word unigram configuration. Due to the representations and/or settings being changed between runs, these values are preliminary and are \emph{not} a controlled causal comparison. The latest record count and exact preprocessing state must also be fixed for reproducible final experiments.
+
+\begin{table}[t]
+\caption{K-means Results (Euclidean Silhouette)}
+\label{tab:exp}
+\centering\footnotesize
+\begin{tabular}{lrrrr}
+\toprule
+Run & $k$ & Silhouette & Min/Max size & Inertia\\
+\midrule
+Whole Hadith & 325 & 0.0063 & 11 / 719 & 25,053.78\\
+Earlier trial & 200 & $-0.0035$ & 12 / 1,264 & 26,088.73\\
+Latest matn-based & 200 & 0.0453 & 40 / 362 & 13,861.05\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The latest silhouette score of 0.0453 is higher than the earlier reported values, but remains near zero, indicating limited geometric separation under this evaluation. Inertia is not directly comparable across different feature matrices, since it depends on the representation. Cluster sizes varied markedly, and semantic coherence has not yet been independently assessed through sample review. Ordinary K-means does not produce epoch-by-epoch training and validation loss curves; silhouette, inertia, cluster sizes, and qualitative analysis are more appropriate diagnostics.
+
+\section{Future Plans}
+The remaining work is scheduled through the final reporting period:
+\begin{table}[h]
+\caption{Planned Weekly Milestones}
+\centering\footnotesize
+\begin{tabular}{p{0.18\columnwidth}p{0.74\columnwidth}}
+\toprule
+Week & Planned tasks\\
+\midrule
+Oct. 29--Nov. 4 & Freeze modeling dataset; confirm missing/empty text handling; save configurations and a reproducible baseline.\\
+Nov. 5--11 & Compare controlled TF-IDF word and character n-grams, whole-Hadith versus matn-based inputs, and multiple $k$ values.\\
+Nov. 12--18 & Inspect sample clusters, evaluate thematic overlap using chapter metadata, and identify repeated-narration and isnad-driven errors.\\
+Nov. 19--25 & Test AraBERT-derived representations if computational resources permit; compare with lexical baselines.\\
+Nov. 26--Dec. 3 & Consolidate metrics and figures, analyze limitations, organize code, and complete final report and presentation.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The principal risks are imperfect Arabic matn segmentation, abbreviated or cross-referenced reports, morphology and diacritics, and the mismatch between broad topics and genuinely equivalent narrations. Planned evaluation will avoid interpreting cluster labels as authenticity grades. scikit-learn's default word tokenizer does not reliably preserve Arabic harakat as part of words. That's another variable worth controlling in later experiments.
+
+\section{Conclusion}
+The dataset has been assembled and profiled, and initial TF-IDF/K-means results have been obtained. Data-quality analysis showed that missing matn values often do not mean the entire Arabic report is missing, while repeated reference keys do not establish exact duplicate rows. Initial silhouette scores are low, so the next phase will test whether improved representations and cleaner modeling inputs yield more meaningful groups of related narrations.
+
+\begin{thebibliography}{00}
+\bibitem{faidi} K. Faidi, R. Ayed, I. Bounhas, and B. Elayeb, ``Comparing Arabic NLP tools for Hadith Classification,'' \emph{International Journal on Islamic Applications in Computer Science and Technology}, vol. 3, no. 3, 2015. [Online]. Available: \url{https://ijasat.com/index.php/ijasat_en/article/view/189}
+\bibitem{arabert} W. Antoun, F. Baly, and H. Hajj, ``AraBERT: Transformer-based Model for Arabic Language Understanding,'' in \emph{Proc. 4th Workshop on Open-Source Arabic Corpora and Processing Tools}, 2020, pp. 9--15. [Online]. Available: \url{https://aclanthology.org/2020.osact-1.2/}
+\end{thebibliography}
+\end{document}
